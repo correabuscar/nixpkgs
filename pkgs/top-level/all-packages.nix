@@ -16725,6 +16725,16 @@ with pkgs;
   };
   rust = rust_1_76;
 
+  rust_koe = callPackage ../development/compilers/rustmy/koe.nix {
+    inherit (darwin.apple_sdk.frameworks) CoreFoundation Security SystemConfiguration;
+    llvm_17 = llvmPackages_17.libllvm;
+  };
+  #rust = rust_koe;
+  rust_nightly = callPackage ../development/compilers/rustmy/nightly.nix {
+    inherit (darwin.apple_sdk.frameworks) CoreFoundation Security SystemConfiguration;
+    llvm_17 = llvmPackages_17.libllvm;
+  };
+
   mrustc = callPackage ../development/compilers/mrustc { };
   mrustc-minicargo = callPackage ../development/compilers/mrustc/minicargo.nix { };
   mrustc-bootstrap = callPackage ../development/compilers/mrustc/bootstrap.nix {
