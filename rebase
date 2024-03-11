@@ -15,7 +15,7 @@ if [ "$current_branch" != "$feature_branch" ]; then
     exit 1
 fi
 
-git fetch #everything I guess
+git fetch upstream #everything on 'upstream' I guess
 
 # Create tag
 git tag "$tag_name"
