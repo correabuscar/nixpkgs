@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euf
+
+# Define variables
+feature_branch="my-nixos-unstable"
+date=$(date +"%Y-%m-%d")
+time=$(date +"%H%M")
+tag_name="${feature_branch}_before_rebase_${date}_${time}"
+
+# Verify current branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" != "$feature_branch" ]; then
+    echo "Error: Not on $feature_branch branch. Aborting."
+    exit 1
+fi
+
+# Create tag
+git tag "$tag_name"
+
+# Rebase on master, this should fail sometimes, u've to edit files and then do the push manually
+git rebase master
+
+# Push changes (never use --force)
+#git push origin "$feature_branch"
+
+echo "All done."
