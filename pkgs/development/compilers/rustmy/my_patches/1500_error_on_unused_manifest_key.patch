@@ -1,0 +1,351 @@
+treat all cargo warnings as errors (well, it bails after showing them)
+we wanna avoid a future this: https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r
+also any other potential gotchas due to allowing unrecognized keys to exist and be ignored by cargo(with only a warning)
+
+tested on rust 1.75.0 on Gentoo
+example:
+
+$ cargo build
+warning: unused2 manifest key: dependencies.gl.problem
+warning: unused2 manifest key: dependencies.winit.problem2
+warning: unused manifest key: build
+warning: unused manifest key: hi
+warning: unused manifest key: package.nonexistent636926912
+warning: unused manifest key: well
+error: Compilation failed due to cargo warnings! Manually done this(via cargo patch) so that things like the following (ie. dep key packages= and using rust pre 1.26.0 which ignores it, downloads squatted package) will be avoided in the future: https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r
+
+for this Cargo.toml:
+[package]
+name = "unused_manifest_key"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+nonexistent636926912="wtw"
+
+[dependencies]
+gl = { version="0.14", problem="moo" }
+winit = { version="0.28", problem2="moo2" }
+
+[well.hello]
+there="ok"
+
+[hi]
+
+[build]
+rustflags = ["-D", "warnings"]
+
+///////////////////////
+other type of warnings happen when compiling rust(from source code) itself, such as (on gentoo) which look like this on console:
+warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c: In function 'hostkey_method_ssh_rsa_dtor':
+warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c:403:5: warning: 'RSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+warning: libssh2-sys@0.3.0:   403 |     _libssh2_rsa_free(rsactx);
+warning: libssh2-sys@0.3.0:       |     ^~~~~~~~~~~~~~~~~
+warning: libssh2-sys@0.3.0: In file included from libssh2/src/openssl.h:81,
+warning: libssh2-sys@0.3.0:                  from libssh2/src/crypto.h:42,
+warning: libssh2-sys@0.3.0:                  from libssh2/src/libssh2_priv.h:141,
+warning: libssh2-sys@0.3.0:                  from libssh2/src/hostkey.c:39:
+warning: libssh2-sys@0.3.0: /usr/include/openssl/rsa.h:304:28: note: declared here
+warning: libssh2-sys@0.3.0:   304 | OSSL_DEPRECATEDIN_3_0 void RSA_free(RSA *r);
+warning: libssh2-sys@0.3.0:       |                            ^~~~~~~~
+warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c: In function 'hostkey_method_ssh_dss_dtor':
+warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c:672:5: warning: 'DSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+warning: libssh2-sys@0.3.0:   672 |     _libssh2_dsa_free(dsactx);
+warning: libssh2-sys@0.3.0:       |     ^~~~~~~~~~~~~~~~~
+warning: libssh2-sys@0.3.0: In file included from /usr/include/openssl/engine.h:26,
+warning: libssh2-sys@0.3.0:                  from libssh2/src/openssl.h:83:
+warning: libssh2-sys@0.3.0: /usr/include/openssl/dsa.h:132:28: note: declared here
+warning: libssh2-sys@0.3.0:   132 | OSSL_DEPRECATEDIN_3_0 void DSA_free(DSA *r);
+warning: libssh2-sys@0.3.0:       |                            ^~~~~~~~
+...
+error: boooooooooooooooooo2
+warning: build failed, waiting for other jobs to finish...
+[RUSTC-TIMING] pasetors test:false 15.231
+warning: `pasetors` (lib) generated 17 warnings
+[RUSTC-TIMING] toml_edit test:false 25.699
+warning: `toml_edit` (lib) generated 5 warnings
+[RUSTC-TIMING] curl test:false 2.971
+warning: `curl` (lib) generated 8 warnings
+[RUSTC-TIMING] syn test:false 44.495
+warning: `syn` (lib) generated 1764 warnings (1685 duplicates)
+[RUSTC-TIMING] gix_transport test:false 4.019
+warning: `gix-transport` (lib) generated 1 warning
+[RUSTC-TIMING] crates_io test:false 3.998
+
+ie. the parent 'cargo' failed with the error (defined in this patch) but that's after libssh2-sys got compiled successfully, apparently.
+These seem like rustc errors in the child cargo which somehow parent cargo treats as cargo warnings.
+
+which in the 'output' file generated looks like the following(noting that it compiled libssh2-sys successfully):
+...
+running: "x86_64-pc-linux-gnu-gcc" "-O3" "-ffunction-sections" "-fdata-sections" "-fPIC" "-gdwarf-4" "-fno-omit-frame-pointer" "-m64" "-ffunction-sections" "-fdata-sections" "-fPIC" "-m64" "-m64" "-I" "/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/build/x86_64-unknown-linux-gnu/stage2-tools/x86_64-unknown-linux-gnu/release/build/libssh2-sys-77310dfb659702e6/out/include" "-I" "libssh2/src" "-I" "/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/build/x86_64-unknown-linux-gnu/stage2-tools/x86_64-unknown-linux-gnu/release/build/libssh2-sys-77310dfb659702e6/out/build" "-I" "/usr/include" "-fvisibility=hidden" "-DHAVE_LONGLONG" "-DHAVE_SNPRINTF" "-DHAVE_UNISTD_H" "-DHAVE_INTTYPES_H" "-DHAVE_STDLIB_H" "-DHAVE_SYS_SELECT_H" "-DHAVE_SYS_SOCKET_H" "-DHAVE_SYS_IOCTL_H" "-DHAVE_SYS_TIME_H" "-DHAVE_SYS_UN_H" "-DHAVE_O_NONBLOCK" "-DLIBSSH2_OPENSSL" "-DHAVE_LIBCRYPT32" "-DHAVE_EVP_AES_128_CTR" "-DHAVE_POLL" "-DHAVE_GETTIMEOFDAY" "-DLIBSSH2_DH_GEX_NEW" "-DLIBSSH2_HAVE_ZLIB" "-o" "/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/build/x86_64-unknown-linux-gnu/stage2-tools/x86_64-unknown-linux-gnu/release/build/libssh2-sys-77310dfb659702e6/out/build/libssh2/src/hostkey.o" "-c" "libssh2/src/hostkey.c"
+cargo:warning=libssh2/src/hostkey.c: In function 'hostkey_method_ssh_rsa_dtor':
+cargo:warning=libssh2/src/hostkey.c:403:5: warning: 'RSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+cargo:warning=  403 |     _libssh2_rsa_free(rsactx);
+cargo:warning=      |     ^~~~~~~~~~~~~~~~~
+cargo:warning=In file included from libssh2/src/openssl.h:81,
+cargo:warning=                 from libssh2/src/crypto.h:42,
+cargo:warning=                 from libssh2/src/libssh2_priv.h:141,
+cargo:warning=                 from libssh2/src/hostkey.c:39:
+cargo:warning=/usr/include/openssl/rsa.h:304:28: note: declared here
+cargo:warning=  304 | OSSL_DEPRECATEDIN_3_0 void RSA_free(RSA *r);
+cargo:warning=      |                            ^~~~~~~~
+cargo:warning=libssh2/src/hostkey.c: In function 'hostkey_method_ssh_dss_dtor':
+cargo:warning=libssh2/src/hostkey.c:672:5: warning: 'DSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+cargo:warning=  672 |     _libssh2_dsa_free(dsactx);
+cargo:warning=      |     ^~~~~~~~~~~~~~~~~
+cargo:warning=In file included from /usr/include/openssl/engine.h:26,
+cargo:warning=                 from libssh2/src/openssl.h:83:
+cargo:warning=/usr/include/openssl/dsa.h:132:28: note: declared here
+cargo:warning=  132 | OSSL_DEPRECATEDIN_3_0 void DSA_free(DSA *r);
+cargo:warning=      |                            ^~~~~~~~
+...
+
+#Index: /var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
+#===================================================================
+#--- .orig/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
+#+++ rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
+#@@ -962,6 +962,8 @@ impl<'cfg> DrainState<'cfg> {
+#                     // Output an empty line.
+#                     writeln!(bcx.config.shell().err())?;
+#                 }
+#+                //use anyhow::bail;
+#+                //bail!("boooooooooooooooooo2: so this effectively treated any child cargos(or any job_queue things, like running gcc compiler lookslike) (eg. due to cargo build --jobs 12) having rustc or cargo warnings as cargo warnings in parent - which means compilation of rust from source fails due to libssh2-sys having some warnings like this: warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c:403:5: warning: 'RSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]. So considering we don't want this to fail, for now, FIXME: we comment out these two lines in this patch. TODO: find a way to replicate this locally to test and see if a libssh2-sys replica will show cargo warnings in child if new keys are added in its Config.toml"); //TODO: let this be and use ENV var to toggle?
+#             }
+#         }
+# 
+
+^ kept so the message above mentioning boooooooooooooooooo2: makes sense.
+
+now THE patch:
+
+Index: /var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/util/toml/mod.rs
+===================================================================
+--- .orig/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/util/toml/mod.rs
++++ rustc-1.75.0-src/src/tools/cargo/src/cargo/util/toml/mod.rs
+@@ -1,3 +1,5 @@
++#![deny(unused_must_use)] // this is so that calls to our modded function(if uncommented mods) dont forget to use the '?' suffix!
++
+ use std::collections::{BTreeMap, BTreeSet, HashMap};
+ use std::ffi::OsStr;
+ use std::path::{Path, PathBuf};
+@@ -102,13 +104,22 @@ fn read_manifest_from_str(
+         stringify(&mut key, &path);
+         unused.insert(key);
+     })?;
++//    let mut found_unused_manifest_keys=false;
++//    //XXX: This detects keys in the root Cargo.toml file so not inside [dependencies] for example.
+     let add_unused = |warnings: &mut Warnings| {
+         for key in unused {
++//            if !found_unused_manifest_keys {
++//                found_unused_manifest_keys=true;
++//            }
+             warnings.add_warning(format!("unused manifest key: {}", key));
+             if key == "profiles.debug" {
+                 warnings.add_warning("use `[profile.dev]` to configure debug builds".to_string());
+-            }
+-        }
++            };
++        };
++//        if found_unused_manifest_keys {
++//            bail!("Unused manifest keys detected1, failing early to avoid any possible future issues like the package= one using earlier rust like explained in https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r");
++//        };
++//        Ok(()) //thanks bail! which forces this closure to return -> Result<_, Error>
+     };
+ 
+     if let Some(deps) = manifest
+@@ -133,6 +144,7 @@ fn read_manifest_from_str(
+             package_root,
+             config,
+         )?;
++//        add_unused(manifest.warnings_mut())?;
+         add_unused(manifest.warnings_mut());
+         if manifest.targets().iter().all(|t| t.is_custom_build()) {
+             bail!(
+@@ -145,6 +157,7 @@ fn read_manifest_from_str(
+     } else {
+         let (mut m, paths) =
+             schema::TomlManifest::to_virtual_manifest(manifest, source_id, package_root, config)?;
++//        add_unused(m.warnings_mut())?;
+         add_unused(m.warnings_mut());
+         Ok((EitherManifest::Virtual(m), paths))
+     };
+@@ -463,7 +476,7 @@ impl schema::TomlManifest {
+                             "workspace.dependencies",
+                             dep.unused_keys(),
+                             &mut warnings,
+-                        );
++                        );//?;
+                     }
+                 }
+                 let ws_root_config = WorkspaceRootConfig::new(
+@@ -678,7 +691,7 @@ impl schema::TomlManifest {
+                 } else {
+                     kind_name.to_string()
+                 };
+-                unused_dep_keys(name_in_toml, &table_in_toml, v.unused_keys(), cx.warnings);
++                unused_dep_keys(name_in_toml, &table_in_toml, v.unused_keys(), cx.warnings);//?;
+                 cx.deps.push(dep);
+                 deps.insert(
+                     n.to_string(),
+@@ -1242,7 +1255,7 @@ impl schema::TomlManifest {
+                 "replace",
+                 replacement.unused_keys(),
+                 &mut cx.warnings,
+-            );
++            );//?;
+             dep.set_version_req(OptVersionReq::exact(&version));
+             replace.push((spec, dep));
+         }
+@@ -1274,7 +1287,7 @@ impl schema::TomlManifest {
+                             &format!("patch.{toml_url}",),
+                             dep.unused_keys(),
+                             &mut cx.warnings,
+-                        );
++                        );//?;
+                         dep.to_dependency(name, cx, None)
+                     })
+                     .collect::<CargoResult<Vec<_>>>()?,
+@@ -1356,11 +1369,27 @@ fn unused_dep_keys(
+     kind: &str,
+     unused_keys: Vec<String>,
+     warnings: &mut Vec<String>,
++//) -> CargoResult<()> {
+ ) {
++    //XXX: This code detects unuseds in the subkeys like in the [dependencies] but not in the root
++    //package
++//    let mut found_unused_manifest_keys=false;
+     for unused in unused_keys {
+-        let key = format!("unused manifest key: {kind}.{dep_name}.{unused}");
++//        if !found_unused_manifest_keys {
++//            found_unused_manifest_keys=true;
++//        }
++        let key = format!("unused2 manifest key: {kind}.{dep_name}.{unused}");
+         warnings.push(key);
+-    }
++    };
++//    if found_unused_manifest_keys {
++//        use std::io::Write;
++//        let mut stderr = std::io::stderr();
++//        for warn in warnings {
++//            writeln!(stderr, "{}", warn)?;
++//        }
++//        bail!("Unused manifest keys detected, failing early to avoid any possible future issues like the package= one using earlier rust like explained in https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r");
++//    };
++//    return Ok(());
+ }
+ 
+ fn inheritable_from_path(
+Index: /var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
+===================================================================
+--- .orig/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
++++ rustc-1.75.0-src/src/tools/cargo/src/cargo/core/compiler/job_queue/mod.rs
+@@ -962,8 +962,33 @@ impl<'cfg> DrainState<'cfg> {
+                     // Output an empty line.
+                     writeln!(bcx.config.shell().err())?;
+                 }
+-            }
+-        }
++//dontTODO: use this on normal 'cargo build' warnings too! ie. CARGO_PEDANTIC=0 to disable error-ing on warnings there too!
++                let env_name="CARGO_PEDANTIC"; // XXX: if it's unset or set to empty then it's on/enabled !
++                let mut is_on:bool=true;
++                use std::env;
++                static DISABLED_VALUES: &[&str] = &["0", "off", "no", "disabled"];
++                let env_val=env::var(env_name).unwrap_or(String::new());
++                if !env_val.is_empty() {
++                    let env_val=env_val.to_lowercase(); //TODO: shadowed rather than mut, which is better ?!
++//                    use once_cell::sync::Lazy;
++//                    static DISABLED_VALUES: Lazy<Vec<&'static str>> = Lazy::new(|| {
++//                        vec!["0", "off", "no", "disabled"]
++//                    });
++//                    use lazy_static::lazy_static;
++//                    lazy_static! {
++//                        static ref DISABLED_VALUES: Vec<&'static str> = vec!["0", "off", "no", "disabled"];
++//                    };
++                    if DISABLED_VALUES.iter().any(|v| v == &env_val) {
++                        is_on=false;
++                    };
++                };//else, is empty or unset, thus is on.
++                if is_on {
++                    let values_str = DISABLED_VALUES.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<String>>().join(", ");
++                    use anyhow::bail;
++                    bail!("Treating the above cargo warnings as errors! So this effectively treated any child cargos(or any job_queue things, like running gcc compiler lookslike) (eg. due to cargo build --jobs 12) having rustc or cargo warnings as cargo warnings in parent - which means compilation of rust from source fails due to libssh2-sys having some warnings like this: warning: libssh2-sys@0.3.0: libssh2/src/hostkey.c:403:5: warning: 'RSA_free' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]. So considering we don't want this to fail, for now, FIXME: we comment out these two lines in this patch. TODO: find a way to replicate this locally to test and see if a libssh2-sys replica will show cargo warnings in child if new keys are added in its Config.toml you can prevent this error from exiting by having env var '{}' set to any of the following(case insensitive) values: {}", env_name, values_str);
++                };
++            };
++        };
+ 
+         Ok(())
+     }
+Index: /var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/workspace.rs
+===================================================================
+--- .orig/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/core/workspace.rs
++++ rustc-1.75.0-src/src/tools/cargo/src/cargo/core/workspace.rs
+@@ -1098,12 +1098,16 @@ impl<'cfg> Workspace<'cfg> {
+     }
+ 
+     pub fn emit_warnings(&self) -> CargoResult<()> {
++        let mut seen_any_warnings=false;
+         for (path, maybe_pkg) in &self.packages.packages {
+             let warnings = match maybe_pkg {
+                 MaybePackage::Package(pkg) => pkg.manifest().warnings().warnings(),
+                 MaybePackage::Virtual(vm) => vm.warnings().warnings(),
+             };
+             let path = path.join("Cargo.toml");
++            if !seen_any_warnings && !warnings.is_empty() {
++                seen_any_warnings=true;
++            }
+             for warning in warnings {
+                 if warning.is_critical {
+                     let err = anyhow::format_err!("{}", warning.message);
+@@ -1122,6 +1126,10 @@ impl<'cfg> Workspace<'cfg> {
+                 }
+             }
+         }
++        if seen_any_warnings {
++            //use anyhow::bail;
++            bail!("Compilation failed due to cargo warnings! Manually done this(via cargo patch) so that things like the following (ie. dep key packages= and using rust pre 1.26.0 which ignores it, downloads squatted package) will be avoided in the future: https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r");
++        }
+         Ok(())
+     }
+ 
+Index: /var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/ops/resolve.rs
+===================================================================
+--- .orig/var/tmp/portage/dev-lang/rust-1.75.0-r1/work/rustc-1.75.0-src/src/tools/cargo/src/cargo/ops/resolve.rs
++++ rustc-1.75.0-src/src/tools/cargo/src/cargo/ops/resolve.rs
+@@ -814,6 +814,7 @@ fn emit_warnings_of_unused_patches(
+     resolve: &Resolve,
+     registry: &PackageRegistry<'_>,
+ ) -> CargoResult<()> {
++    let mut seen_any_warnings=false;
+     const MESSAGE: &str = "was not used in the crate graph.";
+ 
+     // Patch package with the source URLs being patch
+@@ -861,6 +862,9 @@ fn emit_warnings_of_unused_patches(
+                     write!(msg, "\n    {}", id.display_registry_name())?;
+                 }
+                 ws.config().shell().warn(msg)?;
++                if !seen_any_warnings {
++                    seen_any_warnings=true;
++                }
+             }
+             _ => unemitted_unused_patches.push(unused),
+         }
+@@ -868,6 +872,9 @@ fn emit_warnings_of_unused_patches(
+ 
+     // Show general help message.
+     if !unemitted_unused_patches.is_empty() {
++        if !seen_any_warnings {
++            seen_any_warnings=true;
++        }
+         let warnings: Vec<_> = unemitted_unused_patches
+             .iter()
+             .map(|pkgid| format!("Patch `{}` {}", pkgid, MESSAGE))
+@@ -877,5 +884,9 @@ fn emit_warnings_of_unused_patches(
+             .warn(format!("{}\n{}", warnings.join("\n"), UNUSED_PATCH_WARNING))?;
+     }
+ 
++    if seen_any_warnings {
++        use anyhow::bail;
++        bail!("Compilation failed due to cargo [patch] warnings(above)! Manually done this(via cargo patch) so that things like the following (ie. dep key packages= and using rust pre 1.26.0 which ignores it, downloads squatted package) will be avoided in the future: https://github.com/rust-lang/rust/security/advisories/GHSA-phjm-8x66-qw4r");
++    }
+     return Ok(());
+ }
