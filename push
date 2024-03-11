@@ -1,1 +1,4 @@
-../push
+#!/usr/bin/env bash
+
+git push -u --all
+git push -u --tags
