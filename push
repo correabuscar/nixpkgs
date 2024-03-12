@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 
 set -euf
-#XXX: always rebase before pushing! else u'd have to force push! (cuz the branch's HEAD changed to ur commits!)
-#FIXME: ensure push can't happen unless a rebase was done first!
-#no, this is all wrong - rebasing rewrites history thus has to always force push!
-./rebase
+./rebase_push
 
 git push -u --all
 git push -u --tags

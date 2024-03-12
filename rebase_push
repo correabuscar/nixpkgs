@@ -15,7 +15,7 @@ if [ "$current_branch" != "$feature_branch" ]; then
     exit 1
 fi
 
-git fetch upstream #everything on 'upstream' I guess
+git fetch upstream/nixos-unstable
 
 # Create tag
 git tag "$tag_name"
@@ -23,7 +23,7 @@ git tag "$tag_name"
 # Rebase on master, this should fail sometimes, u've to edit files and then do the push manually
 git rebase upstream/nixos-unstable
 
-# Push changes (never use --force)
-#git push origin "$feature_branch"
+# have to use --force because since what I get wasn't applied on top of my commits(ie. they upstream didn't rebase on top of my last push) then theirs has diverged from what I pushed, so i've to go back in time, find common base, and all my commits will have to be re-applied on their latest commit.
+git push --force origin "$feature_branch"
 
 echo "All done."
