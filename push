@@ -3,6 +3,7 @@
 set -euf
 #XXX: always rebase before pushing! else u'd have to force push! (cuz the branch's HEAD changed to ur commits!)
 #FIXME: ensure push can't happen unless a rebase was done first!
+#no, this is all wrong - rebasing rewrites history thus has to always force push!
 ./rebase
 
 git push -u --all
