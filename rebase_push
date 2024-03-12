@@ -15,7 +15,7 @@ if [ "$current_branch" != "$feature_branch" ]; then
     exit 1
 fi
 
-git fetch upstream/nixos-unstable
+git fetch upstream nixos-unstable
 
 # Create tag
 git tag "$tag_name"
