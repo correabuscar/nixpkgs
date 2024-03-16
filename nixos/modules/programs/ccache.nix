@@ -60,7 +60,10 @@ in {
     # target configuration
     (lib.mkIf (cfg.packageNames != []) {
       nixpkgs.overlays = [
-        (self: super: lib.genAttrs cfg.packageNames (pn: super.${pn}.override { stdenv = builtins.trace "with ccache: ${pn}" self.ccacheStdenv; }))
+        (self: super: lib.genAttrs cfg.packageNames (pn: super.${pn}.override {
+          stdenv = builtins.trace "with ccache: ${pn}" self.ccacheStdenv;
+          #cmake=super.cmake2; #nope
+        }))
 
         (self: super: {
           ccacheWrapper = super.ccacheWrapper.override {
