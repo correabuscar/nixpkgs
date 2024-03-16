@@ -68,6 +68,8 @@ in {
         (self: super: {
           ccacheWrapper = super.ccacheWrapper.override {
             extraConfig = builtins.trace "YYYYYYYYYYYYYYYYYYYYYYYY uses crappier ccache config" ''
+              echo "failing on purpose, to detect is this is being used instead: ./nixos/modules/programs/ccache.nix"
+              false #safety measure to exit here if it uses this instead of the one from our ccache_overlay!
               #XXX: anything in here like 'false' that returns exit code non-zero will break the build (doesn't matter if NIX_DEBUG is unset or set to non-zero or zero)
               #false #<= that breaks the build due to 'set -e' being set in the gcc wrapper eg. set -eu -o pipefail +o posix /nix/store/d2b32n6jpah9c2vdnkcpz4jxnkwkhzsx-ccache-links-wrapper-4.9.1/bin/gcc
               #even this script here in extraConfig which is found in like /nix/store/czrhqbzm94c8n4jfa4jxjdqva55lhslj-ccache-links-4.9.1/bin/gcc  has bash -e as interpreter
